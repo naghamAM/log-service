@@ -75,6 +75,10 @@ node load-test.js http://localhost:8080 100 100
 
 يقيس إدخال 100 طلب، كل منها 100 logs، ويطبع throughput. لا تكتب أرقاماً غير مقاسة في التسليم: شغّله على جهازك بعد `docker compose up` وسجّل البيئة، حجم batch، throughput، وp50/p95 للاستعلام هنا. الأداء يتأثر كثيراً بموارد Docker ونظام الجهاز.
 
+## التحقق الحالي
+
+تم التحقق يدوياً من تشغيل `docker compose up --build` ومن الحالات التالية: health بعد migrations، دفعة تحتوي entries صحيحة وخاطئة، البحث بـ `service` و`attr.*` و`q`، cursor pagination، aggregation مع `group_by`، وطلب `limit=0` الذي يعيد HTTP 400. لم يُثبت هدف 15,000 log/s بعد؛ يجب تشغيل اختبار الأداء وتسجيل نتائجه قبل التسليم.
+
 ## حدود معروفة
 
 - لا يوجد authentication أو multi-tenancy؛ هي خارج العقد المطلوب.
