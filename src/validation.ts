@@ -10,6 +10,6 @@ export function validateLog(value: unknown, index: number): { log?: LogInput; re
   if (typeof level !== 'string' || !LEVELS.includes(level as typeof LEVELS[number])) return { rejected: { index, reason: `invalid level: '${String(level)}'` } };
   if (typeof service !== 'string' || !service.trim()) return { rejected: { index, reason: 'service must be a non-empty string' } };
   if (typeof message !== 'string' || !message.trim()) return { rejected: { index, reason: 'message must be a non-empty string' } };
-  if (attributes !== undefined && (!isPlainObject(attributes) || Object.values(attributes).some((v) => !['string', 'number', 'boolean'].includes(typeof v) || !Number.isFinite(v as number)))) return { rejected: { index, reason: 'attributes must be a flat object with string, number, or boolean values' } };
+  if (attributes !== undefined && (!isPlainObject(attributes) || Object.values(attributes).some((v) => !['string', 'number', 'boolean'].includes(typeof v) || (typeof v === 'number' && !Number.isFinite(v))))) return { rejected: { index, reason: 'attributes must be a flat object with string, number, or boolean values' } };
   return { log: { timestamp: date.toISOString(), level: level as LogInput['level'], service: service.trim(), message: message.trim(), attributes: (attributes ?? {}) as Attributes } };
 }
