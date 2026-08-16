@@ -2,10 +2,11 @@ import 'dotenv/config';
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import { deleteExpired, migrate, pool } from './db';
-import { aggregate, insertLogs, queryLogs } from './repository';
+import { aggregate, queryLogs } from './repository';
 import { parseFilters } from './query-params';
 import { validateLog } from './validation';
 import { metrics, recordIngestion } from './metrics';
+import { enqueueLogs } from './ingestion-batcher';
 
 const app = express(); let ready = false;
 app.use(cors()); app.use(express.json({ limit: process.env.MAX_BODY_SIZE ?? '10mb' }));
@@ -18,7 +19,7 @@ app.post('/logs', async (req: Request, res: Response, next: NextFunction) => {
     const valid = []; const rejected = [];
     for (let i = 0; i < req.body.logs.length; i++) { const result = validateLog(req.body.logs[i], i); if (result.log) valid.push(result.log); if (result.rejected) rejected.push(result.rejected); }
     if (!valid.length) { recordIngestion(0, rejected.length, performance.now() - started); return res.status(400).json({ accepted: 0, rejected }); }
-    await insertLogs(valid); recordIngestion(valid.length, rejected.length, performance.now() - started); res.json({ accepted: valid.length, rejected });
+    await enqueueLogs(valid); recordIngestion(valid.length, rejected.length, performance.now() - started); res.json({ accepted: valid.length, rejected });
   } catch (error) { next(error); }
 });
 app.get('/logs', async (req, res, next) => { try { res.json(await queryLogs(parseFilters(req))); } catch (error) { next(error); } });
