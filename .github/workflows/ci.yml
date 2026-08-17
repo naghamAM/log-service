@@ -8,5 +8,11 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
-      - run: npm run build
       - run: npm test
+      - name: Start required services
+        run: docker compose up --build --detach --wait
+      - name: Verify required API contract
+        run: npm run smoke
+      - name: Stop services
+        if: always()
+        run: docker compose down --volumes

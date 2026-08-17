@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Pulseboard · Log Service</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/dashboard/" aria-label="Pulseboard dashboard">
+        <span class="brand-mark">P</span>
+        <span><strong>Pulseboard</strong><small>Log Service</small></span>
+      </a>
+      <div class="health"><span class="health-dot"></span><span id="healthText">Checking service</span></div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">OPERATIONS OVERVIEW</p>
+          <h1>See the signal<br>inside the noise.</h1>
+          <p class="hero-copy">Search stored events, inspect latency, and follow committed logs in real time.</p>
+        </div>
+        <div class="hero-meta">
+          <span id="clock">—</span>
+          <small>LOCAL TIME</small>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Operational metrics">
+        <article class="metric-card accent"><span>INGESTION RATE</span><strong id="rate">—</strong><small>logs/sec · current worker</small></article>
+        <article class="metric-card"><span>INGESTION P95</span><strong id="ingestionP95">—</strong><small>milliseconds</small></article>
+        <article class="metric-card"><span>QUERY P95</span><strong id="queryP95">—</strong><small>milliseconds</small></article>
+        <article class="metric-card"><span>ACCEPTED</span><strong id="accepted">—</strong><small id="workerLabel">this worker</small></article>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">LAST 60 MINUTES</p><h2>Event volume</h2></div>
+          <div class="legend"><span><i class="info"></i>Info</span><span><i class="warn"></i>Warn</span><span><i class="error"></i>Error</span><span><i class="debug"></i>Debug</span></div>
+        </div>
+        <div class="chart-wrap"><canvas id="volumeChart" aria-label="Log volume grouped by level"></canvas><div id="chartEmpty" class="empty hidden">No events in this window.</div></div>
+      </section>
+
+      <section class="panel logs-panel">
+        <div class="panel-heading logs-heading">
+          <div><p class="eyebrow">EXPLORER</p><h2>Logs</h2></div>
+          <button id="tailButton" class="tail-button" type="button"><span class="tail-dot"></span><span id="tailLabel">Start live tail</span></button>
+        </div>
+
+        <form id="filters" class="filters">
+          <label><span>Service</span><input name="service" placeholder="checkout"></label>
+          <label><span>Level</span><select name="level"><option value="">All levels</option><option>debug</option><option>info</option><option>warn</option><option>error</option></select></label>
+          <label class="search"><span>Message contains</span><input name="q" placeholder="Search message text"></label>
+          <label><span>Attribute key</span><input name="attrKey" placeholder="user_id"></label>
+          <label><span>Attribute value</span><input name="attrValue" placeholder="42"></label>
+          <button class="search-button" type="submit">Search</button>
+        </form>
+
+        <div id="notice" class="notice hidden" role="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Level</th><th>Service</th><th>Message</th><th>Attributes</th></tr></thead>
+            <tbody id="logRows"></tbody>
+          </table>
+          <div id="logsEmpty" class="empty hidden">No logs match these filters.</div>
+        </div>
+        <div class="pagination"><span id="resultCount">0 results</span><button id="nextButton" type="button" disabled>Next page →</button></div>
+      </section>
+    </main>
+
+    <footer>PostgreSQL is the source of truth · Live events are emitted only after commit</footer>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

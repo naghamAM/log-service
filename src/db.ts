@@ -17,9 +17,35 @@ export async function migrate(): Promise<void> {
 
 export async function deleteExpired(): Promise<void> {
   const days = Number(process.env.RETENTION_DAYS ?? 30);
-  // Small batches prevent a retention sweep from holding long locks.
+
   while (true) {
-    const result = await pool.query(`DELETE FROM logs WHERE id IN (SELECT id FROM logs WHERE timestamp < now() - ($1 * interval '1 day') LIMIT 10000)`, [days]);
-    if (result.rowCount === 0) break;
+    const result = await pool.query(
+      `
+        DELETE FROM logs
+        WHERE ctid IN (
+          SELECT ctid
+          FROM logs
+          WHERE timestamp <
+            now() - ($1 * interval '1 day')
+          LIMIT 10000
+        )
+      `,
+      [days],
+    );
+
+    if (result.rowCount === 0) {
+      break;
+    }
   }
+
+  await pool.query(
+    `
+      DELETE FROM log_rollups
+      WHERE second_start < date_trunc(
+        'second',
+        now() - ($1 * interval '1 day')
+      )
+    `,
+    [days],
+  );
 }
