@@ -1,33 +1,94 @@
 import { insertLogs } from './repository';
 import { LogInput } from './types';
 
-interface PendingWrite { logs: LogInput[]; resolve: () => void; reject: (error: unknown) => void }
+interface PendingWrite {
+  logs: LogInput[];
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}
+
+const FLUSH_DELAY_MS = 5;
+const MAX_LOGS_PER_DB_BATCH = 20_000;
 
 let pending: PendingWrite[] = [];
 let timer: NodeJS.Timeout | undefined;
+let flushing = false;
 
-/**
- * Coalesces concurrent HTTP batches into one PostgreSQL write. Each caller is
- * resolved only after that write succeeds, so a 200 response still means data
- * is stored. The short 5ms window trades negligible latency for far fewer DB
- * round trips during high-volume ingestion.
- */
 export function enqueueLogs(logs: LogInput[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    pending.push({ logs, resolve, reject });
-    if (!timer) timer = setTimeout(flush, 5);
+    pending.push({
+      logs,
+      resolve,
+      reject,
+    });
+
+    scheduleFlush();
   });
 }
 
+function scheduleFlush(): void {
+  if (timer || flushing) {
+    return;
+  }
+
+  timer = setTimeout(() => {
+    timer = undefined;
+    void flush();
+  }, FLUSH_DELAY_MS);
+}
+
 async function flush(): Promise<void> {
-  timer = undefined;
+  if (flushing) {
+    return;
+  }
+
+  flushing = true;
+
   const writes = pending;
   pending = [];
-  try {
-    await insertLogs(writes.flatMap((write) => write.logs));
-    writes.forEach((write) => write.resolve());
-  } catch (error) {
-    writes.forEach((write) => write.reject(error));
+
+  if (!writes.length) {
+    flushing = false;
+    return;
   }
-  if (pending.length && !timer) timer = setTimeout(flush, 5);
+
+  try {
+    const allLogs = writes.flatMap(
+      (write) => write.logs,
+    );
+
+    for (
+      let offset = 0;
+      offset < allLogs.length;
+      offset += MAX_LOGS_PER_DB_BATCH
+    ) {
+      const insertedRange = await insertLogs(
+        allLogs.slice(
+          offset,
+          offset + MAX_LOGS_PER_DB_BATCH,
+        ),
+      );
+
+      if (insertedRange && process.send) {
+        process.send({
+          type: 'logs-ingested',
+          ...insertedRange,
+        });
+      }
+    }
+
+    for (const write of writes) {
+      write.resolve();
+    }
+  } catch (error) {
+    for (const write of writes) {
+      write.reject(error);
+    }
+  } finally {
+    flushing = false;
+
+    if (pending.length) {
+      scheduleFlush();
+    }
+  }
 }

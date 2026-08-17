@@ -1,12 +1,36 @@
 services:
   postgres:
     image: postgres:16-alpine
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_compression=on
+      - -c
+      - bgwriter_lru_maxpages=1000
+      - -c
+      - bgwriter_lru_multiplier=10
+      - -c
+      - gin_pending_list_limit=64MB
     environment:
       POSTGRES_DB: logs_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports: ["5432:5432"]
-    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d logs_db"]
       interval: 3s
@@ -14,18 +38,32 @@ services:
       retries: 20
     mem_limit: 1g
     cpus: 1.0
+
   app:
     build: .
-    ports: ["8080:8080"]
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/logs_db
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/logs_db
       PORT: 8080
-      PGPOOL_MAX: 8
+      PGPOOL_MAX: 4
       RETENTION_DAYS: 30
+      MAX_BODY_SIZE: 10mb
+    ports:
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:8080/health', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 2s
+      timeout: 2s
+      retries: 60
     mem_limit: 256m
     cpus: 0.5
+    restart: unless-stopped
+
 volumes:
   postgres_data:
