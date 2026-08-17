@@ -18,3 +18,8 @@ test('rejects invalid levels without throwing', () => {
 test('rejects nested attributes', () => {
   assert.match(validateLog({ ...valid, attributes: { nested: { x: 1 } } }, 0).rejected?.reason ?? '', /flat object/);
 });
+
+test('rejects non-ISO and impossible timestamps', () => {
+  assert.match(validateLog({ ...valid, timestamp: '2026-8-01' }, 0).rejected?.reason ?? '', /invalid timestamp/);
+  assert.match(validateLog({ ...valid, timestamp: '2026-02-29T10:00:00Z' }, 0).rejected?.reason ?? '', /invalid timestamp/);
+});
